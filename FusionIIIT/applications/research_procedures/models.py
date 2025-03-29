@@ -37,6 +37,9 @@ class projects(models.Model):
     STATUS_CHOICES = (
         ('OnGoing', 'OnGoing'),
         ('Submitted', 'Submitted'),
+        ('Registered', 'Registered'),
+        ('RSPC Approval', 'RSPC Approval'),
+        ('HoD Forward', 'HoD Forward'),
         ('Completed', 'Completed'),
     )      
 
@@ -44,10 +47,10 @@ class projects(models.Model):
         ('CSE', 'Computer Science and Engineering'),
         ('ECE', 'Electronics and Communication Engineering'),
         ('ME', 'Mechanical Engineering'),
-        ('SM', 'School of Management'),
-        ('Des', 'Design'),
+        ('SM', 'Smart Manufacturing'),
+        ('Design', 'Design'),
         ('NS', 'Natural Sciences'),
-        ('LA', 'Liberal Arts'),
+        ('Liberal Arts', 'Liberal Arts'),
         ('none', 'None Of The Above'),
     ]
 
@@ -65,12 +68,15 @@ class projects(models.Model):
     duration = models.IntegerField()
     submission_date = models.DateField()
     total_budget=models.IntegerField(default=0)
-    rem_budget=models.IntegerField(default=0)
+    sanction_date=models.DateField(null=True, blank=True)
+    sanctioned_amount = models.IntegerField(default=0)
     start_date=models.DateField(null=True, blank=True)
     initial_amount = models.IntegerField(default=0)
-    file=models.FileField( null=True, blank=True)
+    file=models.FileField(upload_to="RSPC/", null=True, blank=True)
+    registration_form=models.FileField(upload_to="RSPC/", null=True, blank=True)
     status= models.CharField(max_length=50, choices=STATUS_CHOICES)
-    end_report=models.FileField( null=True, blank=True)
+    end_report=models.FileField(upload_to="RSPC/", null=True, blank=True)
+    end_approval=models.CharField(max_length=50, choices=STATUS_CHOICES, null=True, blank=True)
 
     def __str__(self):
         return f"{self.name} ({self.pid})"
@@ -85,6 +91,7 @@ class budget(models.Model):
     consumables = ArrayField(models.IntegerField(), default=list)    # Year-wise consumables
     equipments = ArrayField(models.IntegerField(), default=list) 
     overhead = models.IntegerField(default=0)
+    current_funds = models.IntegerField(null=True, blank=True, default=0)
 
     def __str__(self):
         return f"Budget Year {self.year} for {self.pid.name}"
@@ -123,58 +130,77 @@ class expenditure(models.Model):
     def __str__(self):
         return f"{self.item} ({self.exptype})"
 
+class staff_positions(models.Model):
+    spid = models.AutoField(primary_key=True)
+    pid = models.OneToOneField(projects, on_delete=models.CASCADE)
+    positions = models.JSONField()
+    incumbents = models.JSONField()
+
+
 class staff(models.Model):
-    DESIGNATION_CHOICES = [
-        ('Co-Project Investigator', 'Co-Project Investigator'),
-        ('Research Scholar', 'Research Scholar'),
-        ('Research Assistant', 'Research Assistant'),
+    BOOLEAN_CHOICES = [
+        ('Yes', 'Yes'),
+        ('No', 'No'),
+    ]
+    TYPE_CHOICES = [
+        ('Research Associate', 'Research Associate'),
+        ('Senior Research Fellow', 'Senior Research Fellow'),
+        ('Junior Research Fellow', 'Junior Research Fellow'),
         ('Supporting Staff', 'Supporting Staff'),
-        ('Student Intern', 'Student Intern'),
-    ]
-
-    QUALIFICATION_CHOICES = [
-        ('MTech', 'MTech Student'),
-        ('PhD', 'PhD Student'),
-        ('Professor', 'Teaching Faculty'),
-        ('Other', 'Other Supporting Staff'),
-    ]
-
-    DEPT_CHOICES = [
-        ('CSE', 'Computer Science and Engineering'),
-        ('ECE', 'Electronics and Communication Engineering'),
-        ('ME', 'Mechanical Engineering'),
-        ('SM', 'School of Management'),
-        ('Des', 'Design'),
-        ('NS', 'Natural Sciences'),
-        ('LA', 'Liberal Arts'),
-        ('none', 'None Of The Above'),
+        ('Project Trainee', 'Project Trainee'),
     ]
 
     APPROVAL_CHOICES = [
         ('Approved', 'Approved'),
-        ('Rejected', 'Rejected'),
-        ('Pending' , 'Pending')
+        ('RSPC Approval', 'RSPC Approval'),
+        ('HoD Forward', 'HoD Forward'),
+        ('Hiring', 'Hiring'),
+        ('Pending' , 'Pending'),
+        ('Committee Approval', 'Committee Approval'),
     ]
 
-    id = models.AutoField(primary_key=True)
-    file_id=models.IntegerField()
+    sid = models.AutoField(primary_key=True)
     pid=models.ForeignKey(projects, on_delete=models.CASCADE)
-    person = models.CharField(max_length=300)
-    uname = models.CharField(max_length=150)
-    dept = models.CharField(max_length=50, choices=DEPT_CHOICES)
-    qualification = models.CharField(max_length=50, choices=QUALIFICATION_CHOICES)
-    designation = models.CharField(max_length=50, choices=DESIGNATION_CHOICES)
-    stipend = models.DecimalField(max_digits=10, decimal_places=2)
-    startdate = models.DateField(null=True, blank=True)
-    lastdate = models.DateField(null=True, blank=True)
-    desc = models.TextField(blank=True,  null=True)
-    file = models.FileField( null=True, blank=True)
-    approval= models.CharField(max_length=50, choices=APPROVAL_CHOICES) 
+    person = models.CharField(max_length=300, null=True, blank=True)
+    uname = models.CharField(max_length=150, null=True, blank=True)
+    biodata_number = models.IntegerField(null=True, blank=True)
+    start_date = models.DateField(null=True, blank=True)
+
+    duration = models.IntegerField()
+    eligibility = models.TextField(blank=True, null=True)
+    type = models.CharField(max_length=50, choices=TYPE_CHOICES)
+    salary = models.DecimalField(max_digits=10, decimal_places=2)
+    has_funds = models.CharField(max_length=10, choices=BOOLEAN_CHOICES)
+    post_on_website = models.FileField(upload_to="RSPC/", null=True, blank=True)
+    submission_date = models.DateField()
+    interview_date = models.DateField()
+    test_date = models.DateField()
+    test_mode = models.CharField(max_length=100)
+    interview_place = models.CharField(max_length=100)
+    selection_committee = models.JSONField()
+
+    candidates_applied = models.IntegerField(null=True, blank=True)
+    candidates_called = models.IntegerField(null=True, blank=True)
+    candidates_interviewed = models.IntegerField(null=True, blank=True)
+    final_selection = ArrayField(models.JSONField(), default=list)
+    waiting_list = ArrayField(models.JSONField(), default=list)
+    biodata_final = ArrayField(models.CharField(max_length=500), default=list)
+    biodata_waiting = ArrayField(models.CharField(max_length=500), default=list)
+    ad_file = models.FileField(upload_to="RSPC/", null=True, blank=True)
+    comparative_file = models.FileField(upload_to="RSPC/", null=True, blank=True)
+    approval= models.CharField(max_length=50, choices=APPROVAL_CHOICES)
+    gave_verdict = ArrayField(models.CharField(max_length=150), default=list)
+    current_approver = models.CharField(max_length=150, null=True, blank=True)
+
+    joining_report = models.FileField(upload_to="RSPC/", null=True, blank=True)
+    doc_approval= models.CharField(max_length=50, choices=APPROVAL_CHOICES, null=True, blank=True)
+    salary_per_month = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    id_card = models.FileField(upload_to="RSPC/", null=True, blank=True)
 
     def clean(self):
         if self.deadline <= self.startdate:
             raise ValidationError('End date must be after the start date.')
-        if self.stipend < 0:
+        if self.salary < 0:
             raise ValidationError('Stipend must be atleast zero')
 
     def __str__(self):
@@ -206,7 +232,7 @@ class staff(models.Model):
 #         return f"{self.pid} ({self.request_type}) - {self.rid}"
 
 #     class Meta:
-        ordering = ['-id']
+#         ordering = ['-id']
 
 
     
